@@ -8,17 +8,18 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract UniswapV3LiquidityManager {
     INonfungiblePositionManager public positionManager;
 
-    constructor(address _positionManager) {
-        positionManager = INonfungiblePositionManager(_positionManager);
+    constructor(INonfungiblePositionManager _positionManager) {
+        positionManager = _positionManager;
     }
 
     function provideLiquidity(
-        address pool,
+        IUniswapV3Pool pool,
         uint256 amount0Desired,
         uint256 amount1Desired,
         uint256 width
     ) external {
         require(width > 0, "Width must be greater than 0");
+        require(amount0Desired != 0 && amount1Desired != 0, "Input amount should not be zero");
 
         IUniswapV3Pool uniswapPool = IUniswapV3Pool(pool);
         (uint160 sqrtPriceX96, , , , , , ) = uniswapPool.slot0();

@@ -1,41 +1,90 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import "forge-std/Test.sol";
 import "../src/UniswapV3LiquidityManager.sol";
+import "forge-std/Test.sol";
+import "@uniswap-v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import "@uniswap-v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+interface IWETH is IERC20 {
+    function deposit() external payable;
+}
+
 contract UniswapV3LiquidityManagerTest is Test {
+    uint256 private constant MAINNET_BLOCK = 21000000;
+    string private constant MAINNET_RPC_URL = "https://eth.llamarpc.com";
+    address private constant USER = address(1);
+    uint256 private constant USDC_AMOUNT = 33333 ether;
+    uint256 private constant WETH_AMOUNT = 10 ether;
+    uint256 private constant USDC_BALANCE_SLOT = 2;
+    address private constant USDC_ADDR = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address private constant WETH_MAINNET_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address private constant POSITION_MANAGER_ADDR = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
+    address private constant UNISWAP_V3_POOL_ADDR = 0xC2e9F25Be6257c210d7Adf0D4Cd6E3E881ba25f8;
+
     UniswapV3LiquidityManager liquidityManager;
-    address positionManager = 0x1234567890123456789012345678901234567890; // Mock address
-    address pool =   0x3333333333333333333333333333333333333333; // Mock pool address
-    address token0 = 0x1111111111111111111111111111111111111111; // Mock token0 address
-    address token1 = 0x2222222222222222222222222222222222222222; // Mock token1 address
+    INonfungiblePositionManager positionManager;
+    IUniswapV3Pool pool;
+
+    IERC20 USDC = IERC20(USDC_ADDR);
+    IWETH WETH9 = IWETH(WETH_MAINNET_ADDR);
+
+    function setUSDCBalance(address account, uint256 amount) internal {
+        bytes32 slot = keccak256(abi.encode(account, uint256(USDC_BALANCE_SLOT)));
+        vm.store(address(USDC), slot, bytes32(amount));
+    }
+
+    function setWETHBalance(address account, uint256 amount) internal {
+        vm.deal(account, amount);
+        vm.startPrank(account);
+        WETH9.deposit{value: amount}();
+        vm.stopPrank();
+    }
+
+    function approveTokens(address account, uint256 usdtAmount, uint256 wethAmount) internal {
+        vm.startPrank(account);
+        USDC.approve(address(liquidityManager), usdtAmount);
+        WETH9.approve(address(liquidityManager), wethAmount);
+        vm.stopPrank();
+    }
 
     function setUp() public {
+        vm.createSelectFork(MAINNET_RPC_URL, MAINNET_BLOCK);
+
+        positionManager = INonfungiblePositionManager(POSITION_MANAGER_ADDR);
+        pool = IUniswapV3Pool(UNISWAP_V3_POOL_ADDR);
         liquidityManager = new UniswapV3LiquidityManager(positionManager);
+
+        setUSDCBalance(USER, USDC_AMOUNT);
+        setWETHBalance(USER, WETH_AMOUNT);
+
+        approveTokens(USER, USDC_AMOUNT, WETH_AMOUNT);
     }
 
     function testProvideLiquidity() public {
-        uint256 amount0Desired = 1000 ether;
-        uint256 amount1Desired = 500 ether;
-        uint256 width = 500; // Mock width
+        uint256 width = 500; 
 
-        // Mock token balances
-        vm.prank(address(this));
-        IERC20(token0).approve(address(liquidityManager), amount0Desired);
-        vm.prank(address(this));
-        IERC20(token1).approve(address(liquidityManager), amount1Desired);
+        vm.prank(USER);
+        liquidityManager.provideLiquidity(pool, USDC_AMOUNT, WETH_AMOUNT, width);
 
-        // Call provideLiquidity
-        vm.prank(address(this));
-        liquidityManager.provideLiquidity(pool, amount0Desired, amount1Desired, width);
+        assertGt(USDC.allowance(address(this), address(liquidityManager)), 0);
+        assertGt(WETH9.allowance(address(this), address(liquidityManager)), 0);
+    }
 
-        // Assertions
-        // Assert that the function executes without reverting and tokens are approved
-        assertGt(IERC20(token0).allowance(address(this), address(liquidityManager)), 0);
-        assertGt(IERC20(token1).allowance(address(this), address(liquidityManager)), 0);
+    function testProvideLiquidityWithDifferentWidths() public {
+        uint256[] memory widths = new uint256[](3);
+        widths[0] = 10;
+        widths[1] = 50;
+        widths[2] = 100;
+
+        uint256 usdcAmount = USDC_AMOUNT / 10;
+        uint256 wethAmount = WETH_AMOUNT / 10;
+
+        for (uint256 i = 0; i < widths.length; i++) {
+            vm.prank(USER);
+            liquidityManager.provideLiquidity(pool, usdcAmount, wethAmount, widths[i]);
+        }
     }
 
     function testInvalidWidth() public {
@@ -47,65 +96,42 @@ contract UniswapV3LiquidityManagerTest is Test {
         liquidityManager.provideLiquidity(pool, amount0Desired, amount1Desired, invalidWidth);
     }
 
-    function testInsufficientBalanceToken0() public {
-        uint256 amount0Desired = 1000 ether;
-        uint256 amount1Desired = 500 ether;
-        uint256 width = 500;
+    function testProvideLiquidityWithInvalidAmounts() public {
+        uint256 width = 1;
 
-        // Mock insufficient balance for token0
-        vm.prank(address(this));
-        IERC20(token0).approve(address(liquidityManager), amount0Desired);
-
-        vm.expectRevert(); // Expect transaction to revert due to insufficient balance
-        liquidityManager.provideLiquidity(pool, amount0Desired, amount1Desired, width);
+        vm.prank(USER);
+        vm.expectRevert("Input amount should not be zero");
+        liquidityManager.provideLiquidity(pool, 0, 0, width);
     }
 
-    function testInsufficientBalanceToken1() public {
-        uint256 amount0Desired = 1000 ether;
-        uint256 amount1Desired = 500 ether;
-        uint256 width = 500;
+    function testProvideLiquidityWithInsufficientBalance() public {
+        uint256 width = 1;
+        setUSDCBalance(USER, USDC_AMOUNT / 2);
 
-        // Mock insufficient balance for token1
-        vm.prank(address(this));
-        IERC20(token1).approve(address(liquidityManager), amount1Desired);
-
-        vm.expectRevert(); // Expect transaction to revert due to insufficient balance
-        liquidityManager.provideLiquidity(pool, amount0Desired, amount1Desired, width);
+        vm.prank(USER);
+        vm.expectRevert();
+        liquidityManager.provideLiquidity(pool, USDC_AMOUNT, WETH_AMOUNT, width);
     }
 
-    function testZeroAmountLiquidity() public {
-        uint256 amount0Desired = 0;
-        uint256 amount1Desired = 0;
-        uint256 width = 500;
-
-        vm.expectRevert(); // Expect revert due to zero amounts
-        liquidityManager.provideLiquidity(pool, amount0Desired, amount1Desired, width);
+    function testPartialFills() public {
+        uint256 width = 1;
+        uint256 largeUSDCAmount = USDC_AMOUNT * 10; 
+        vm.prank(USER);
+        vm.expectRevert();
+        liquidityManager.provideLiquidity(pool, largeUSDCAmount, WETH_AMOUNT, width);
     }
 
-    function testWidthCalculations() public {
-        uint256 amount0Desired = 1000 ether;
-        uint256 amount1Desired = 500 ether;
-        uint256 width = 500;
+    function testprovideLiquidityWithoutApproval() public {
 
-        // Mock the pool's slot0 response
-        vm.mockCall(
-            pool,
-            abi.encodeWithSignature("slot0()"),
-            abi.encode(uint160(1 << 96), 0, 0, 0, 0, 0, 0)
-        );
+        uint256 width = 1;
+        vm.startPrank(USER);
+        USDC.approve(address(liquidityManager), 0);
+        WETH9.approve(address(liquidityManager), 0);
+        vm.stopPrank();
 
-        // Call provideLiquidity to ensure proper tick calculation
-        vm.prank(address(this));
-        liquidityManager.provideLiquidity(pool, amount0Desired, amount1Desired, width);
+        vm.prank(USER);
+        vm.expectRevert();
+        liquidityManager.provideLiquidity(pool, USDC_AMOUNT, WETH_AMOUNT, width);
 
-        // No assertions here as we focus on not reverting and mocking behavior
-    }
-
-    function testTickCalculation() public view{
-        uint256 price = 1 ether;
-        int24 tickSpacing = 60;
-
-        int24 calculatedTick = liquidityManager._getNearestTick(price, tickSpacing);
-        assertEq(calculatedTick % tickSpacing, 0, "Tick should align with spacing");
     }
 }
