@@ -1,17 +1,15 @@
-## Foundry
+Необходимо написать контракт, который взаимодействует с протоколом UniswapV3.
+В контракт подается информация о интересующем пуле (адрес пула), количество первого и второго актива, который необходимо вложить в позицию, а также параметр ширины.
+Необходимо вложить заданные объемы в позицию таким образом, чтобы ширина этой позиции равнялась заданному параметру.
+Ширину предлагаем считать следующим образом: width = (upperPrice - lowerPrice) * 10000 / (lowerPrice + upperPrice).
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+Необходимо, чтобы контракт работал для любого uniswap v3 пула вне зависимости от вкладываемых токенов.
 
-Foundry consists of:
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+forge install OpenZeppelin/openzeppelin-contracts  --no-commit
+forge install uniswap/v3-periphery --no-commit
+forge install uniswap/v3-core --no-commit
 
-## Documentation
-
-https://book.getfoundry.sh/
 
 ## Usage
 
@@ -27,40 +25,13 @@ $ forge build
 $ forge test
 ```
 
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
 ### Deploy
-
 ```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
+$ forge script script/DeployUniswapV3LiquidityManager.s.sol    // - local
+$ forge script script/DeployUniswapV3LiquidityManager.s.sol --rpc-url $RPC_URL --legacy    // - simulate
+$ forge script script/DeployUniswapV3LiquidityManager.s.sol --rpc-url $RPC_URL --broadcast --legacy -vvvv   // - real tx
 
-### Cast
+$ source .env
+$ forge script script/DeployUniswapV3LiquidityManager.s.sol --legacy --broadcast --rpc-url $RPC_URL --verifier-url $VERIFIER_URL --etherscan-api-key $ETHERSCAN_API_KEY
 
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
 ```
