@@ -6,7 +6,7 @@
 Необходимо, чтобы контракт работал для любого uniswap v3 пула вне зависимости от вкладываемых токенов.
 
 
-forge install OpenZeppelin/openzeppelin-contracts  --no-commit
+forge install OpenZeppelin/openzeppelin-contracts@8e02960 --no-commit
 forge install uniswap/v3-periphery --no-commit
 forge install uniswap/v3-core --no-commit
 
