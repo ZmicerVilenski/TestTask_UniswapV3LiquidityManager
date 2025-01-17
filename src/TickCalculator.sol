@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+// pragma solidity ^0.8.21;
+pragma solidity =0.7.6;
 pragma abicoder v2;
 
 import "@uniswap-v3-core/contracts/interfaces/IUniswapV3Pool.sol";

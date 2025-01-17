@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+// pragma solidity ^0.8.21;
+pragma solidity =0.7.6;
 
 import "forge-std/Script.sol";
 import "../src/UniswapV3LiquidityManager.sol";
