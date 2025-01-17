@@ -12,13 +12,13 @@ interface IWETH is IERC20 {
 }
 
 contract UniswapV3LiquidityManagerTest is Test {
-    uint256 private constant MAINNET_BLOCK = 21000000;
-    string private constant MAINNET_RPC_URL = "https://eth.llamarpc.com";
+    uint256 private constant BLOCK_NUM = 21000000;
+    string private constant RPC_URL = "https://eth.llamarpc.com";
     address private constant USER = address(1);
-    uint256 private constant USDC_AMOUNT = 33333 ether;
+    uint256 private constant USDC_AMOUNT = 100000 ether;
     uint256 private constant WETH_AMOUNT = 10 ether;
     uint256 private constant USDC_BALANCE_SLOT = 2;
-    address private constant USDC_ADDR = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address private constant USDC_ADDR = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address private constant WETH_MAINNET_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address private constant POSITION_MANAGER_ADDR = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
     address private constant UNISWAP_V3_POOL_ADDR = 0xC2e9F25Be6257c210d7Adf0D4Cd6E3E881ba25f8;
@@ -33,6 +33,12 @@ contract UniswapV3LiquidityManagerTest is Test {
     function setUSDCBalance(address account, uint256 amount) internal {
         bytes32 slot = keccak256(abi.encode(account, uint256(USDC_BALANCE_SLOT)));
         vm.store(address(USDC), slot, bytes32(amount));
+
+        // bytes32 slot1 = vm.load(address(USDC), keccak256(abi.encode(account, uint256(USDC_BALANCE_SLOT))));
+        // console.logBytes32(slot1);
+        // console.log("USDC_AMOUNT:", USDC_AMOUNT);
+        // console.log("amount:", amount);
+        // console.log("USDC balace:", USDC.balanceOf(USER));
     }
 
     function setWETHBalance(address account, uint256 amount) internal {
@@ -50,7 +56,8 @@ contract UniswapV3LiquidityManagerTest is Test {
     }
 
     function setUp() public {
-        vm.createSelectFork(MAINNET_RPC_URL, MAINNET_BLOCK);
+
+        vm.createSelectFork(RPC_URL, BLOCK_NUM);
 
         positionManager = INonfungiblePositionManager(POSITION_MANAGER_ADDR);
         pool = IUniswapV3Pool(UNISWAP_V3_POOL_ADDR);
@@ -58,18 +65,21 @@ contract UniswapV3LiquidityManagerTest is Test {
 
         setUSDCBalance(USER, USDC_AMOUNT);
         setWETHBalance(USER, WETH_AMOUNT);
-
         approveTokens(USER, USDC_AMOUNT, WETH_AMOUNT);
+
     }
 
     function testProvideLiquidity() public {
         uint256 width = 500; 
 
         vm.prank(USER);
-        liquidityManager.provideLiquidity(pool, USDC_AMOUNT, WETH_AMOUNT, width);
+        (uint256 tokenId, uint128 liquidity, uint256 amount0Used, uint256 amount1Used) =
+            liquidityManager.provideLiquidity(pool, USDC_AMOUNT, WETH_AMOUNT, width);
 
-        assertGt(USDC.allowance(address(this), address(liquidityManager)), 0);
-        assertGt(WETH9.allowance(address(this), address(liquidityManager)), 0);
+        assertGt(uint256(liquidity), 0, "Liquidity should be greater than 0");
+        assertGt(tokenId, 0, "Token ID should be greater than 0");
+        assertLe(amount0Used, USDC_AMOUNT, "Used more amount0 than provided");
+        assertLe(amount1Used, WETH_AMOUNT, "Used more amount1 than provided");
     }
 
     function testProvideLiquidityWithDifferentWidths() public {
@@ -87,6 +97,18 @@ contract UniswapV3LiquidityManagerTest is Test {
         }
     }
 
+    function testInsufficientBalanceToken1() public {
+        uint256 amount0Desired = 1000 ether;
+        uint256 amount1Desired = 500 ether;
+        uint256 width = 500;
+
+        vm.prank(USER);
+        USDC.approve(address(liquidityManager), amount1Desired);
+
+        vm.expectRevert(); 
+        liquidityManager.provideLiquidity(pool, amount0Desired, amount1Desired, width);
+    }
+
     function testInvalidWidth() public {
         uint256 amount0Desired = 1000 ether;
         uint256 amount1Desired = 500 ether;
@@ -94,6 +116,15 @@ contract UniswapV3LiquidityManagerTest is Test {
 
         vm.expectRevert("Width must be greater than 0");
         liquidityManager.provideLiquidity(pool, amount0Desired, amount1Desired, invalidWidth);
+    }
+
+    function testZeroAmountLiquidity() public {
+        uint256 amount0Desired = 0;
+        uint256 amount1Desired = 0;
+        uint256 width = 500;
+
+        vm.expectRevert(); 
+        liquidityManager.provideLiquidity(pool, amount0Desired, amount1Desired, width);
     }
 
     function testProvideLiquidityWithInvalidAmounts() public {
