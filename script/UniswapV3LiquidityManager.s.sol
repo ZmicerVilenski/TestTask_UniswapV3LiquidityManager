@@ -4,7 +4,7 @@ pragma solidity =0.7.6;
 
 import "forge-std/Script.sol";
 import "../src/UniswapV3LiquidityManager.sol";
-import "@uniswap-v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 
 contract DeployUniswapV3LiquidityManager is Script {    
     INonfungiblePositionManager positionManager = INonfungiblePositionManager(0x1234567890123456789012345678901234567890);

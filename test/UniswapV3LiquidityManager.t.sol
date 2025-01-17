@@ -2,11 +2,10 @@
 // pragma solidity ^0.8.21;
 pragma solidity =0.7.6;
 pragma abicoder v2;
-
 import "../src/UniswapV3LiquidityManager.sol";
 import "forge-std/Test.sol";
-import "@uniswap-v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
-import "@uniswap-v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IWETH is IERC20 {

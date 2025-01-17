@@ -3,8 +3,8 @@
 pragma solidity =0.7.6;
 pragma abicoder v2;
 
-import "@uniswap-v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
-import "@uniswap-v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TicksCalculator} from "./TickCalculator.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
